@@ -1,5 +1,6 @@
 ﻿/* SquareContents.cs
  * Authors: Josh Weese and Rod Howell
+ * Modified By: Gabriel Whitehair
  */
 using System;
 using System.Collections.Generic;
@@ -12,37 +13,32 @@ namespace Ksu.Cis300.Checkers
     /// <summary>
     /// The possible contents of a board square.
     /// </summary>
-    public enum SquareContents
+    public enum SquareContents 
     {
         /// <summary>
         /// A white pawn.
         /// </summary>
-        WhitePawn,
-
+        WhitePawn, // 
         /// <summary>
-        /// A white king.
+        ///  A white king.
         /// </summary>
         WhiteKing,
-
         /// <summary>
         /// A black pawn.
         /// </summary>
-        BlackPawn,
-
+        BlackPawn, //
         /// <summary>
         /// A black king.
         /// </summary>
         BlackKing,
-
         /// <summary>
         /// An empty square on the board.
         /// </summary>
         None,
-
         /// <summary>
         /// Indicates the square is not a valid square on the board.
         /// </summary>
-        Invalid
+        Invalid 
     }
 
 }

@@ -1,5 +1,6 @@
 ﻿/* Move.cs
  * Authors: Josh Weese and Rod Howell
+ * Modified By: Gabriel Whitehair
  */
 using System;
 using System.Collections.Generic;
@@ -10,58 +11,47 @@ using System.Drawing;
 
 namespace Ksu.Cis300.Checkers
 {
-    /// <summary>
-    /// Represents a move, either a single jump or a non-jump.
-    /// </summary>
-    public class Move
+    public class Move // Represents a move, either a single jump or a non-jump.
     {
         /// <summary>
         /// Gets whether the move is a jump.
         /// </summary>
         public bool IsJump { get; }
-
         /// <summary>
         /// Gets the player making the move.
         /// </summary>
         public Player MovingPlayer { get; }
-
         /// <summary>
         /// Gets the player not making the move.
         /// </summary>
         public Player OtherPlayer { get; }
-
         /// <summary>
         /// The square from which the move begins.
         /// </summary>
         public Point From { get; }
-
         /// <summary>
         /// The square at which the move ends.
         /// </summary>
         public Point To { get; }
-
         /// <summary>
         /// Gets whether the piece is a king at the start of the move.
         /// </summary>
         public bool FromKing { get; }
-
         /// <summary>
         /// Gets the captured piece.
         /// </summary>
-        public Checker CapturedPiece { get; }
-
+        public bool CapturedIsKing { get; }
         /// <summary>
         /// The location of the captured piece.
         /// </summary>
         public Point CapturedLocation { get; }
-
         /// <summary>
         /// Gets the legal moves at the time this move is made.
         /// </summary>
-        public Stack<Move> LegalMoves { get; }
-
+        public Stack<Move> LegalMoves { get; } 
+        
         /// <summary>
-        /// Constructs a non-jump move.
+        /// Constructor 1: Constructs a non-jump move.
         /// </summary>
         /// <param name="from">The square where the move starts.</param>
         /// <param name="to">The square where the move ends.</param>
@@ -79,9 +69,8 @@ namespace Ksu.Cis300.Checkers
             LegalMoves = moves;
             IsJump = false;
         }
-
         /// <summary>
-        /// Constructs a jump move.
+        /// Constructor 2: Constructs a jump move.
         /// </summary>
         /// <param name="from">The square where the move starts.</param>
         /// <param name="to">The square where the move ends.</param>
@@ -89,10 +78,10 @@ namespace Ksu.Cis300.Checkers
         /// <param name="moving">The moving player.</param>
         /// <param name="other">The other player.</param>
         /// <param name="moves">The legal moves at the time this move is made.</param>
-        /// <param name="cap">The captured piece.</param>
+        /// <param name="capIsKing">The captured piece is a king or not</param>
         /// <param name="capLoc">The location of the captured piece.</param>
         public Move(Point from, Point to, bool fromKing, Player moving, Player other, Stack<Move> moves, 
-            Checker cap, Point capLoc)
+            bool capIsKing, Point capLoc)
         {
             From = from;
             To = to;
@@ -100,16 +89,15 @@ namespace Ksu.Cis300.Checkers
             MovingPlayer = moving;
             OtherPlayer = other;
             LegalMoves = moves;
-            CapturedPiece = cap;
+            CapturedIsKing = capIsKing;
             CapturedLocation = capLoc;
             IsJump = true;
         }
-
         /// <summary>
-        /// Gets a string representation of this move.
+        /// Override's ToString
         /// </summary>
-        /// <returns>The string representation of this move.</returns>
-        public override string ToString()
+        /// <returns>string representation</returns>
+        public override string ToString() // Gets a string representation of this move.
         {
             string move = MovingPlayer.Name + "-" + From.X +"," + From.Y + " to " + To.X + "," + To.Y;
             if (!IsJump)
@@ -125,6 +113,8 @@ namespace Ksu.Cis300.Checkers
                 return sb.ToString();
             }
         }
+
+        
 
     }
 }

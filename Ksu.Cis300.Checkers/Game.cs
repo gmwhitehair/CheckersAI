@@ -1,6 +1,6 @@
-﻿/*
- * Game.cs
+﻿/* Game.cs
  * Authors: Josh Weese and Rod Howell
+ * Modified By: Gabriel Whitehair
  */
 using System;
 using System.Collections.Generic;
@@ -14,70 +14,61 @@ namespace Ksu.Cis300.Checkers
     public class Game
     {
         /// <summary>
-        /// The board.
-        /// </summary>
-        private Checker[,] _board = new Checker[8, 8];
-
-        /// <summary>
         /// Gets whether there is a selected square.
         /// </summary>
         private bool _squareIsSelected;
-
         /// <summary>
-        /// The currently-selected square. 
+        ///  The currently-selected square. 
         /// </summary>
         private Point _selectedSquare;
-
         /// <summary>
         /// The player moving the white pieces.
         /// </summary>
         private Player _whitePlayer = new Player(1, "White");
-
         /// <summary>
-        /// The player moving the black pieces.
+        ///  The player moving the black pieces.
         /// </summary>
         private Player _blackPlayer = new Player(-1, "Black");
-
         /// <summary>
         /// The player whose turn it currently is.
         /// </summary>
         private Player _currentPlayer;
-
         /// <summary>
         /// The player whose turn it is not.
         /// </summary>
         private Player _otherPlayer;
-
         /// <summary>
         /// The moves that are currently legal.
         /// </summary>
         private Stack<Move> _legalMoves = new Stack<Move>();
-
         /// <summary>
         /// The directions a king can move.
         /// </summary>
         private Point[] _allDirections = { new Point(-1, -1), new Point(-1, 1), new Point(1, -1), new Point(1, 1) };
-
         /// <summary>
         /// The history of moves.
         /// </summary>
         private Stack<Move> _moveHistory = new Stack<Move>();
-
+        /// <summary>
+        /// base value of a loss
+        /// </summary>
+        private const int _loss = -200;
+        /// <summary>
+        /// random field
+        /// </summary>
+        private Random _random = new Random(0);
         /// <summary>
         /// Whose turn it is.
         /// </summary>
         public string CurrentName => _currentPlayer.Name;
-
         /// <summary>
         /// Whose turn it is not.
         /// </summary>
         public string OtherName => _otherPlayer.Name;
-
         /// <summary>
         /// Gets whether the game is over.
         /// </summary>
-        public bool IsOver => _legalMoves.Count == 0;
-
+        public bool IsOver => _legalMoves.Count == 0; // 
         /// <summary>
         /// Gets the contents of the given square.
         /// </summary>
@@ -89,14 +80,19 @@ namespace Ksu.Cis300.Checkers
             {
                 return SquareContents.Invalid;
             }
-            Checker checker = _board[square.X, square.Y];
-            if (checker == null)
+            //Checker checker = _board[square.X, square.Y];
+            bool whitePieceKing = false;
+            bool blackPieceKing = false;
+            bool foundWhite = _whitePlayer.pieces.TryGetValue(square, out whitePieceKing);
+            bool foundBlack = _blackPlayer.pieces.TryGetValue(square, out blackPieceKing);
+            
+            if (!foundWhite && !foundBlack)
             {
                 return SquareContents.None;
             }
-            if (checker.Owner == _whitePlayer)
+            if (foundWhite)
             {
-                if (checker.IsKing)
+                if (whitePieceKing)
                 {
                     return SquareContents.WhiteKing;
                 }
@@ -107,7 +103,7 @@ namespace Ksu.Cis300.Checkers
             }
             else
             {
-                if (checker.IsKing)
+                if (blackPieceKing)
                 {
                     return SquareContents.BlackKing;
                 }
@@ -117,10 +113,8 @@ namespace Ksu.Cis300.Checkers
                 }
             }
         }
-
         /// <summary>
-        /// Gets the valid directions for the current player assuming the
-        /// given type of piece.
+        /// Gets the valid directions for the current player assuming the given type of piece.
         /// </summary>
         /// <param name="isKing">Whether the piece to be moved is a king.</param>
         /// <returns>The valid directions the piece can move.</returns>
@@ -135,25 +129,23 @@ namespace Ksu.Cis300.Checkers
                 return _currentPlayer.PawnDirections;
             }
         }
-
         /// <summary>
         /// Adds to _legalMoves the non-jumps from the given location.
         /// </summary>
         /// <param name="loc">The location of the checker to move.</param>
-        private void GetNonJumpsFrom(Point loc)
+        /// <param name="currentPlayerKing">If the current player is a king</param>
+        private void GetNonJumpsFrom(Point loc, bool currentPlayerKing)
         {
-            Checker checker = _board[loc.X, loc.Y];
-            Point[] dirs = GetValidDirections(checker.IsKing);
+            Point[] dirs = GetValidDirections(currentPlayerKing);
             foreach (Point d in dirs)
             {
                 Point target = new Point(loc.X + d.X, loc.Y + d.Y);
                 if (GetContents(target) == SquareContents.None)
                 {
-                    _legalMoves.Push(new Move(loc, target, checker.IsKing, _currentPlayer, _otherPlayer, _legalMoves));
+                    _legalMoves.Push(new Move(loc, target, currentPlayerKing, _currentPlayer, _otherPlayer, _legalMoves));
                 }
             }
         }
-
         /// <summary>
         /// Checks whether a jump can be made from the given start square in the given
         /// direction. The only checks made are whether the first square contains an enemy
@@ -161,39 +153,38 @@ namespace Ksu.Cis300.Checkers
         /// </summary>
         /// <param name="startSquare">Where the player's piece starts</param>
         /// <param name="dir">The direction the player's piece is moving</param>
+        /// <param name="kingCaptured">If captured piece is a king</param>
         /// <returns>Whether or not the jump can be made</returns>
-        private bool CanJump(Point startSquare, Point dir)
+        private bool CanJump(Point startSquare, Point dir, out bool kingCaptured)
         {
-            if (GetContents(new Point(startSquare.X + 2 * dir.X, startSquare.Y + 2 * dir.Y)) ==
-                SquareContents.None)
+            if (GetContents(new Point(startSquare.X + 2 * dir.X, startSquare.Y + 2 * dir.Y)) == SquareContents.None)
             {
                 Point enemySquare = new Point(startSquare.X + dir.X, startSquare.Y + dir.Y);
-                Checker enemyPiece = _board[enemySquare.X, enemySquare.Y];
-                return enemyPiece != null && enemyPiece.Owner == _otherPlayer;
+                bool otherPlayerFound = _otherPlayer.pieces.TryGetValue(enemySquare, out kingCaptured);
+                return otherPlayerFound;
             }
+            kingCaptured = false;
             return false;
         }
-
         /// <summary>
         /// Adds to _legalMoves the jump moves from the given location.
         /// </summary>
         /// <param name="loc">The location of the piece making the move.</param>
-        private void GetJumpsFrom(Point loc)
+        /// <param name="currentPlayerKing">Is the current player a king</param>
+        private void GetJumpsFrom(Point loc, bool currentPlayerKing)
         {
-            bool isKing = _board[loc.X, loc.Y].IsKing;
-            Point[] dirs = GetValidDirections(isKing);
+            Point[] dirs = GetValidDirections(currentPlayerKing);
+            bool kingCaptured;
             foreach (Point d in dirs)
             {
-                if (CanJump(loc, d))
+                if (CanJump(loc, d, out kingCaptured))
                 {
                     Point capLoc = new Point(loc.X + d.X, loc.Y + d.Y);
-                    Checker cap = _board[capLoc.X, capLoc.Y];
-                    _legalMoves.Push(new Move(loc, new Point(loc.X + 2 * d.X, loc.Y + 2 * d.Y), isKing, _currentPlayer,
-                        _otherPlayer, _legalMoves, cap, capLoc));
+                    _legalMoves.Push(new Move(loc, new Point(loc.X + 2 * d.X, loc.Y + 2 * d.Y), currentPlayerKing, _currentPlayer,
+                        _otherPlayer, _legalMoves, kingCaptured, capLoc));
                 }
             }
         }
-
         /// <summary>
         /// Adds to _legalMoves the moves of the given type from all of the current player's pieces.
         /// <param name="jumps">Indicates whether jump moves are to be found.</param>
@@ -204,23 +195,24 @@ namespace Ksu.Cis300.Checkers
             {
                 for (int x = 0; x < 8; x++)
                 {
-                    Checker checker = _board[x, y];
-                    if (checker != null && checker.Owner == _currentPlayer)
+                    bool currentPlayerKing;
+                    bool currentPlayerFound = _currentPlayer.pieces.TryGetValue(new Point(x,y), out currentPlayerKing);
+
+                    if (currentPlayerFound)
                     {
                         Point loc = new Point(x, y);
                         if (jumps)
                         {
-                            GetJumpsFrom(loc);
+                            GetJumpsFrom(loc, currentPlayerKing);
                         }
                         else
                         {
-                            GetNonJumpsFrom(loc);
+                            GetNonJumpsFrom(loc, currentPlayerKing);
                         }
                     }
                 }
             }
         }
-
         /// <summary>
         /// Constructor for initializing the game
         /// </summary>
@@ -236,18 +228,17 @@ namespace Ksu.Cis300.Checkers
                     {
                         if (y < 3)
                         {
-                            _board[x, y] = new Checker(_whitePlayer);
+                            _otherPlayer.pieces.Add(new Point(x, y), false); 
                         }
                         else if (y > 4)
                         {
-                            _board[x, y] = new Checker(_blackPlayer);
+                            _currentPlayer.pieces.Add(new Point(x, y), false); 
                         }
                     }
                 }
             }
             GetMoves(false); // No jumps available for the first move
         }
-
         /// <summary>
         /// Ends the current player's turn.
         /// </summary>
@@ -260,11 +251,10 @@ namespace Ksu.Cis300.Checkers
             GetMoves(true);
             if (_legalMoves.Count == 0)
             {
-                GetMoves(false);
+                GetMoves(false); // doesn't let you not jump
             }
             _squareIsSelected = false;
         }
-
         /// <summary>
         /// Determines whether the given square is selected.
         /// </summary>
@@ -274,7 +264,6 @@ namespace Ksu.Cis300.Checkers
         {
             return _squareIsSelected && _selectedSquare == square;
         }
-
         /// <summary>
         /// Determines whether the given square is the start square of a
         /// legal move.
@@ -292,7 +281,6 @@ namespace Ksu.Cis300.Checkers
             }
             return false;
         }
-
         /// <summary>
         /// Tries to select the piece at the given location. If the location
         /// is not the start location of a legal move, the selection is
@@ -310,14 +298,12 @@ namespace Ksu.Cis300.Checkers
             }
             return false;
         }
-
         /// <summary>
         /// Tries to get a legal move.
         /// </summary>
         /// <param name="from">The start square of the move.</param>
         /// <param name="to">The destination square of the move.</param>
-        /// <returns>The move described, or null if the move described is
-        /// illegal.</returns>
+        /// <returns>The move described, or null if the move described is illegal.</returns>
         private Move TryGetMove(Point from, Point to)
         {
             foreach (Move move in _legalMoves)
@@ -329,7 +315,6 @@ namespace Ksu.Cis300.Checkers
             }
             return null;
         }
-
         /// <summary>
         /// Plays the given move.
         /// </summary>
@@ -337,20 +322,28 @@ namespace Ksu.Cis300.Checkers
         private void DoMove(Move move)
         {
             _moveHistory.Push(move);
-            Checker moving = _board[move.From.X, move.From.Y];
-            _board[move.To.X, move.To.Y] = moving;
-            _board[move.From.X, move.From.Y] = null;
+            _currentPlayer.pieces.Remove(move.From);
+            bool nowKing = false;
             if (move.To.Y == _currentPlayer.KingAt)
             {
-                moving.IsKing = true;
+                _currentPlayer.pieces.Add(move.To, true);
+                nowKing = true;
             }
+            else
+            {
+                _currentPlayer.pieces.Add(move.To, move.FromKing);
+            }
+
             if (move.IsJump)
             {
-                _board[move.CapturedLocation.X, move.CapturedLocation.Y] = null;
-                if (move.FromKing || !moving.IsKing)
+                _otherPlayer.pieces.Remove(move.CapturedLocation);
+                
+                if (move.FromKing || !(nowKing)) // doesn't cause a pawn to become a king
                 {
                     _legalMoves = new Stack<Move>();
-                    GetJumpsFrom(move.To);
+                    bool currentPlayerKing = false;
+                    bool currentPlayerFound = _currentPlayer.pieces.TryGetValue(move.To, out currentPlayerKing);
+                    GetJumpsFrom(move.To, currentPlayerKing);
                     if (_legalMoves.Count != 0)
                     {
                         TrySelectSquare(move.To);
@@ -360,7 +353,6 @@ namespace Ksu.Cis300.Checkers
             }
             EndTurn();
         }
-
         /// <summary>
         /// Tries to select the given square or move the selected piece to it.
         /// </summary>
@@ -390,7 +382,6 @@ namespace Ksu.Cis300.Checkers
                 return false;
             }
         }
-
         /// <summary>
         /// Tries to undo the last move.
         /// </summary>
@@ -403,18 +394,105 @@ namespace Ksu.Cis300.Checkers
                 _currentPlayer = last.MovingPlayer;
                 _otherPlayer = last.OtherPlayer;
                 _legalMoves = last.LegalMoves;
-                Checker checker = _board[last.To.X, last.To.Y];
-                _board[last.To.X, last.To.Y] = null;
-                _board[last.From.X, last.From.Y] = checker;
-                checker.IsKing = last.FromKing;
+                _currentPlayer.pieces.Remove(last.To);
+                _currentPlayer.pieces.Add(last.From, last.FromKing);
                 if (last.IsJump)
                 {
-                    _board[last.CapturedLocation.X, last.CapturedLocation.Y] = last.CapturedPiece;
+                    _otherPlayer.pieces.Add(last.CapturedLocation, last.CapturedIsKing);
                 }
                 TrySelectSquare(last.From);
                 return true;
             }
             return false;
+        }
+        /// <summary>
+        /// Shuffle moves from _legalMoves array
+        /// </summary>
+        /// <returns>Shuffled move array</returns>
+        private Move[] ShuffleMoves() 
+        {
+            Move[] legalMovesArray = _legalMoves.ToArray(); // Step 1
+            for (int i = legalMovesArray.Length - 1; i > 0 ; i--) // Step 2 // maybe add a greater than?
+            {
+                int randInt = _random.Next(i + 1);
+                Move saved = legalMovesArray[i];
+                legalMovesArray[i] = legalMovesArray[randInt];
+                legalMovesArray[randInt] = saved;
+            }
+            return legalMovesArray;
+        }
+        /// <summary>
+        /// Negamax algorithm and alpha beta pruning
+        /// </summary>
+        /// <param name="lowerBoundA">Lower bound alpha (a)</param>
+        /// <param name="upperBoundB">Upper bound beta (b)</param>
+        /// <param name="K">Score to subtract</param>
+        /// <param name="legalMoves">Legal moves array</param>
+        /// <param name="bestMove">Best move to make for the AI</param>
+        /// <returns>Double for score</returns>
+        private double Negamax(double lowerBoundA, double upperBoundB, int K, 
+            IEnumerable<Move> legalMoves, out Move bestMove) 
+        {
+            bestMove = null;
+            if (IsOver)
+            {
+                return ((_loss - K));
+            }
+            if (K == 0)
+            {
+                return (_currentPlayer.PositionValue - _otherPlayer.PositionValue) / (double)(_currentPlayer.pieces.Count + _otherPlayer.pieces.Count);
+            }
+            Player cur = _currentPlayer;
+            foreach (Move move in legalMoves) // iterate through legalMoves
+            {
+                DoMove(move);
+                double score;
+                if (cur == _currentPlayer)
+                {
+                    score = Negamax(lowerBoundA, upperBoundB, K, _legalMoves, out Move q);
+                }
+                else
+                {
+                    score = -Negamax(-upperBoundB, -lowerBoundA, K-1, _legalMoves, out Move q);
+                }
+                Undo();
+                if (score > lowerBoundA)
+                {
+                    lowerBoundA = score;
+                    bestMove = move;
+                    if (lowerBoundA >= upperBoundB)
+                    {
+                        return lowerBoundA;
+                    }
+                }
+            }
+            return lowerBoundA;
+        }
+
+        /// <summary>
+        /// Uses above methods to make the best move for the AI
+        /// </summary>
+        /// <param name="turns">Depth to go - passed to negabax in K</param>
+        public void MakeBestMove(int turns) 
+        {
+            Move m;
+            if (IsOver)
+            {
+                throw new InvalidOperationException();
+            }
+            else if (turns < 1)
+            {
+                throw new InvalidOperationException();
+            }
+            else if (_legalMoves.Count == 1)
+            {
+                m = _legalMoves.Peek();
+            }
+            else
+            {
+                Negamax(double.NegativeInfinity, double.PositiveInfinity, turns, ShuffleMoves(), out m);
+            }
+            DoMove(m);
         }
     }
 }

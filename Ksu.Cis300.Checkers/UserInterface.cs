@@ -1,5 +1,6 @@
 ﻿/* UserInterface.cs
  * Authors: Josh Weese and Rod Howell
+ * Modified By: Gabriel Whitehair
  */
 using System;
 using System.Collections.Generic;
@@ -10,6 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Threading;
 
 namespace Ksu.Cis300.Checkers
 {
@@ -22,32 +24,30 @@ namespace Ksu.Cis300.Checkers
         /// The size of an individual board square in pixels.
         /// </summary>
         private const int _squareSize = 60;
-
         /// <summary>
         /// The current game.
         /// </summary>
         private Game _game = new Game();
-
         /// <summary>
         /// Image for the white pawn checker piece
         /// </summary>
         private Image _whitePawn = Image.FromFile(@"..\..\pics\white-pawn-modified.png");
-
         /// <summary>
         /// Image for the white king checker piece
         /// </summary>
         private Image _whiteKing = Image.FromFile(@"..\..\pics\white-king-modified.png");
-
         /// <summary>
         /// Image for the black pawn checker piece
         /// </summary>
         private Image _blackPawn = Image.FromFile(@"..\..\pics\black-pawn-modified.png");
-
         /// <summary>
         /// Image for the black king checker piece
         /// </summary>
         private Image _blackKing = Image.FromFile(@"..\..\pics\black-king-modified.png");
-
+        /// <summary>
+        /// New game dialog 
+        /// </summary>
+        private uxNewGameDialog _newGameDialog = new uxNewGameDialog();
         /// <summary>
         /// Initializes the checkers game
         /// </summary>
@@ -56,7 +56,6 @@ namespace Ksu.Cis300.Checkers
             InitializeComponent();
             DrawBoard();
         }
-
         /// <summary>
         /// Draws the initial game board.
         /// </summary>
@@ -80,7 +79,7 @@ namespace Ksu.Cis300.Checkers
                     uxBoard.Controls.Add(square);
                 }
             }
-            RedrawBoard();
+            RedrawBoard(500);
         }
 
         /// <summary>
@@ -106,11 +105,10 @@ namespace Ksu.Cis300.Checkers
                     return null;
             }
         }
-
         /// <summary>
         /// Updates the GUI to match the current game position.
         /// </summary>
-        private void RedrawBoard()
+        private void RedrawBoard(int milliseconds) // The directions say to implement this int parameter
         {
             foreach (Label square in uxBoard.Controls)
             {
@@ -137,8 +135,23 @@ namespace Ksu.Cis300.Checkers
                     uxStatus.Text = _game.CurrentName + "'s turn.";
                 }
             }
+            Refresh();                
+            Thread.Sleep(milliseconds);
         }
-
+        /// <summary>
+        /// Plays computers move it is the computers turn
+        /// </summary>
+        public void TryComputerPlay() 
+        {
+            if (!_game.IsOver)
+            {
+                while (_game.CurrentName.Equals(_newGameDialog.ComputerPlayer))
+                {
+                    _game.MakeBestMove(_newGameDialog.level);
+                    RedrawBoard(500);
+                }
+            }
+        }
         /// <summary>
         /// Click event handler for when a board square is clicked.  
         /// It will attempt to make a move using the selected square through the game object.
@@ -152,7 +165,8 @@ namespace Ksu.Cis300.Checkers
                 Point loc = GetPoint(((Label)sender).Text);
                 if (_game.SelectOrMove(loc))
                 {
-                    RedrawBoard();
+                    RedrawBoard(500);
+                    TryComputerPlay();
                     CheckWin();
                 }
                 else
@@ -161,7 +175,6 @@ namespace Ksu.Cis300.Checkers
                 }
             }
         }
-
         /// <summary>
         /// If the game is over, displays the appropriate message.
         /// </summary>
@@ -172,7 +185,6 @@ namespace Ksu.Cis300.Checkers
                 MessageBox.Show(_game.OtherName + " wins!");
             }
         }
-
         /// <summary>
         /// Converts the name of a square to a Point.
         /// </summary>
@@ -185,7 +197,23 @@ namespace Ksu.Cis300.Checkers
             int y = Convert.ToInt32(fields[1]);
             return new Point(x, y);
         }
-
+        /// <summary>
+        /// Manages the new game dialog
+        /// </summary>
+        /// <returns>Bool indicating whether the user started a new game</returns>
+        private bool NewGame()
+        {
+            if (_newGameDialog.ShowDialog() == DialogResult.OK)
+            {
+                _game = new Game();
+                Show();
+                RedrawBoard(500);
+                uxUndo.Enabled = _newGameDialog.ComputerPlayer.Equals("");
+                TryComputerPlay();
+                return true;
+            }
+            return false;
+        }
         /// <summary>
         /// Click event handler for the new game menu item.
         /// </summary>
@@ -193,10 +221,21 @@ namespace Ksu.Cis300.Checkers
         /// <param name="e"></param>
         private void uxNew_Click(object sender, EventArgs e)
         {
-            _game = new Game();
-            RedrawBoard();
+            NewGame();
+            RedrawBoard(500);
         }
-
+        /// <summary>
+        /// Overrides the OnLoad method 
+        /// </summary>
+        /// <param name="e"></param>
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            if (!NewGame())
+            {
+                Application.Exit();
+            }
+        }
         /// <summary>
         /// Click event handler for the undo menu item.
         /// </summary>
@@ -205,7 +244,8 @@ namespace Ksu.Cis300.Checkers
         private void uxUndo_Click(object sender, EventArgs e)
         {
             if (_game.Undo())
-                RedrawBoard();
+                RedrawBoard(0);
         }
+        
     }
 }
